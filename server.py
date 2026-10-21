@@ -2,7 +2,8 @@
 """docker-deploy: run one audited deploy script, selected by name only.
 
     POST /run/<name>    run <SCRIPT_DIR>/<name>.sh
-    GET  /scripts       names currently callable
+    GET  /scripts       names currently callable, plus any that exist but are
+                        refused, with the reason
     GET  /health        liveness
 
 The caller supplies a name and nothing else: no arguments, no request-supplied
@@ -46,59 +47,60 @@ RUN_ENV = {
 }
 
 
-def _trusted(st: os.stat_result) -> bool:
-    """A runnable script: regular file, root-owned, executable, not writable by
-    group or others.
+def resolve(name: str) -> tuple[str | None, str | None]:
+    """Map a name to a script path. Returns (path, None) or (None, reason).
 
-    The ownership check matters on Unraid: files on /mnt/user are often owned by
-    nobody:nobody, so "owner-writable" would mean an SMB user can edit a script
-    that root then executes.
+    Never leaves SCRIPT_DIR, and never follows a symlink.
     """
-    return (
-        stat.S_ISREG(st.st_mode)
-        and st.st_uid == 0
-        and bool(st.st_mode & stat.S_IXUSR)
-        and not (st.st_mode & (stat.S_IWGRP | stat.S_IWOTH))
-    )
-
-
-def resolve(name: str) -> str | None:
-    """Map a name to a script path, or None. Never leaves SCRIPT_DIR."""
     if not NAME_RE.fullmatch(name):
-        return None
+        return None, "invalid name"
 
     path = os.path.join(SCRIPT_DIR, name + ".sh")
     try:
         # lstat: a symlink is not a regular file, so it is rejected outright
         # rather than followed out of the directory.
         st = os.lstat(path)
+    except FileNotFoundError:
+        return None, "not found"
     except OSError:
-        return None
+        return None, "not readable"
 
-    if not _trusted(st):
-        return None
+    if not stat.S_ISREG(st.st_mode):
+        return None, "not a regular file"
+    if st.st_uid != 0:
+        # Matters on Unraid: files under /mnt/user are often nobody-owned, so
+        # "owner writable" would mean an SMB user can edit what root executes.
+        return None, f"not owned by root (uid {st.st_uid})"
+    if not st.st_mode & stat.S_IXUSR:
+        return None, "not executable (chmod 755)"
+    if st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        return None, "writable by group or others (chmod 755)"
 
     # Belt and braces: even if something above were bypassed, the resolved
     # parent must still be the script directory.
     if os.path.dirname(os.path.realpath(path)) != SCRIPT_DIR:
-        return None
-    return path
+        return None, "outside the script directory"
+    return path, None
 
 
-def discover() -> list[str]:
+def discover() -> tuple[list[str], dict[str, str]]:
     """Re-read the directory on every call, so a new script needs no restart."""
     try:
         entries = os.listdir(SCRIPT_DIR)
     except OSError:
-        return []
-    names = []
+        return [], {}
+    runnable: list[str] = []
+    rejected: dict[str, str] = {}
     for fn in entries:
         if not fn.endswith(".sh"):
             continue
         name = fn[:-3]
-        if resolve(name) is not None:
-            names.append(name)
-    return sorted(names)
+        path, reason = resolve(name)
+        if path is not None:
+            runnable.append(name)
+        elif reason != "not found":
+            rejected[name] = reason or "rejected"
+    return sorted(runnable), rejected
 
 
 def check_dir() -> None:
@@ -136,7 +138,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - http.server API
         if self.path in ("/health", "/scripts"):
-            return self._json(200, {"ok": True, "scripts": discover()})
+            runnable, rejected = discover()
+            return self._json(200, {"ok": True, "scripts": runnable, "rejected": rejected})
         self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:  # noqa: N802 - http.server API
@@ -147,9 +150,14 @@ class Handler(BaseHTTPRequestHandler):
         if "/" in name or "?" in name:
             return self._json(400, {"error": "a single script name is required"})
 
-        script = resolve(name)
+        script, reason = resolve(name)
         if script is None:
-            return self._json(404, {"error": f"no such script: {name}", "scripts": discover()})
+            runnable, rejected = discover()
+            code = 404 if reason == "not found" else 403
+            return self._json(
+                code,
+                {"error": f"{name}: {reason}", "scripts": runnable, "rejected": rejected},
+            )
 
         started = time.monotonic()
         with open(f"/tmp/{name}.lock", "w") as lock:
@@ -189,12 +197,14 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     check_dir()
-    names = discover()
+    runnable, rejected = discover()
     print(
-        f"[startup] {SCRIPT_DIR}: {len(names)} callable script(s): "
-        + (", ".join(names) if names else "(none)"),
+        f"[startup] {SCRIPT_DIR}: {len(runnable)} callable script(s): "
+        + (", ".join(runnable) if runnable else "(none)"),
         flush=True,
     )
+    for name, reason in sorted(rejected.items()):
+        print(f"[startup] !! {name}: {reason}", file=sys.stderr, flush=True)
     httpd = ThreadingHTTPServer((LISTEN_HOST, LISTEN_PORT), Handler)
     httpd.daemon_threads = True
     print(f"[startup] listening on {LISTEN_HOST}:{LISTEN_PORT}", flush=True)

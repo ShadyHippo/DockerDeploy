@@ -46,6 +46,10 @@ services:
       # what runs.
       - ./scripts:/scripts:ro
 
+      # Registry token. Drop your PAT into secrets/gh_pat; scripts read it at
+      # /secrets/gh_pat. Same shape as scripts: a local dir, mounted read-only.
+      - ./secrets:/secrets:ro
+
       # Where the stacks live, at the same path as on the host so relative
       # binds inside compose files resolve identically. rw because build stacks
       # may `git pull`; tighten to :ro if every stack only pulls.

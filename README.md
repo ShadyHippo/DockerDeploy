@@ -37,7 +37,8 @@ caller ──HTTP──▶ docker-deploy ──execve──▶ /scripts/<name>.s
   scripts/            the allowlist, mounted read-only
     ping.sh
     easyedit.sh       yours
-  docker/             DOCKER_CONFIG + ghcr.token, gitignored
+  docker/             DOCKER_CONFIG (gitignored)
+  secrets/gh_pat      registry token (gitignored), mounted at /secrets
 
 /mnt/user/appdata/docker_projects/                   the stacks
   EasyEdit-Photos/
@@ -159,18 +160,19 @@ No ports are published, so it is only reachable from containers on that network.
 
 ## Private registries
 
-Keep the token in `docker/`, which is already mounted at `/root/.docker`:
+The token is mounted, not copied. Put it in `secrets/gh_pat` (gitignored, so it
+never reaches this repo) — the directory is mounted read-only at `/secrets`:
 
 ```bash
-printf '%s' '<pat>' > docker/ghcr.token
-chmod 600 docker/ghcr.token
+install -m 600 /dev/null secrets/gh_pat
+$EDITOR secrets/gh_pat          # paste the PAT, no trailing newline
 ```
 
 and in the script:
 
 ```bash
 export DOCKER_CONFIG=/root/.docker
-tr -d '\n' < /root/.docker/ghcr.token \
+tr -d '\n' < /secrets/gh_pat \
   | docker login ghcr.io -u <user> --password-stdin
 ```
 

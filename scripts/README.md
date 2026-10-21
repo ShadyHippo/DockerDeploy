@@ -56,8 +56,8 @@ PROJECT=/mnt/user/appdata/docker_projects/Example
 export DOCKER_CONFIG=/root/.docker
 
 # private images only
-if [ -s /root/.docker/ghcr.token ]; then
-  tr -d '\n' < /root/.docker/ghcr.token \
+if [ -s /secrets/gh_pat ]; then
+  tr -d '\n' < /secrets/gh_pat \
     | docker login ghcr.io -u <user> --password-stdin >/dev/null
 fi
 

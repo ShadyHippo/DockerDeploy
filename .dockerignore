@@ -1,0 +1,3 @@
+# scripts come from the read-only mount, not the image
+scripts/
+README.md

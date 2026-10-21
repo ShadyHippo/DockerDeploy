@@ -1,0 +1,59 @@
+# docker-deploy — run audited deploy scripts by name.
+#
+#   docker compose pull        use the published image
+#   docker compose up -d --build   build from this checkout instead
+#
+# Scripts live in $SCRIPTS_DIR on the host and are mounted read-only. Adding a
+# script needs no restart: the directory is listed on every request.
+#
+# Every host path below is overridable. Defaults match a typical Unraid box:
+#
+#   /mnt/user/appdata/docker-deploy/
+#     scripts/            the allowlist (root-owned, 755)
+#     docker/             DOCKER_CONFIG, for private registry logins
+
+services:
+  docker-deploy:
+    image: ghcr.io/shadyhippo/dockerdeploy:latest
+    build: .
+    container_name: docker-deploy
+    restart: unless-stopped
+
+    # Disposable container: no writable root, no Linux capabilities.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    # Reachable from other containers as http://docker-deploy:9000.
+    # No ports: published — nothing outside Docker's networks can reach it.
+    networks:
+      - deploy-net
+
+    volumes:
+      # The whole point: the scripts call docker, and this is how they reach
+      # the host's daemon. Root-equivalent by design. See README.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # The allowlist. Read-only: a caller can never add or edit what runs.
+      - ${SCRIPTS_DIR:-/mnt/user/appdata/docker-deploy/scripts}:/scripts:ro
+
+      # Where the stacks live, at the same path as on the host so relative
+      # binds inside compose files resolve identically. rw because build stacks
+      # may `git pull`; tighten to :ro if every stack only pulls.
+      - ${PROJECTS_DIR:-/mnt/user/appdata/docker-projects}:${PROJECTS_DIR:-/mnt/user/appdata/docker-projects}:rw
+
+      # Registry credentials for private images. On the array, not /root:
+      # /root is RAM on Unraid and a login there dies on reboot.
+      - ${DOCKER_CONFIG_DIR:-/mnt/user/appdata/docker-deploy/docker}:/root/.docker
+
+    environment:
+      SCRIPT_DIR: /scripts
+      RUN_TIMEOUT: "1800"
+
+networks:
+  deploy-net:
+    name: deploy-net

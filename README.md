@@ -12,9 +12,19 @@ Scripts live on the host, are mounted read-only, and adding one needs no restart
 ## Why
 
 An agent running in a container needs to say "pull the new image and recreate
-this stack". It should not get the Docker socket to do that. This container is
-the smallest thing that turns a name into a host-side `docker compose up -d`:
-a directory of scripts you wrote, and a dispatcher that will only ever run those.
+this stack". It should not get the Docker socket to do that: the socket is
+root-equivalent, and an agent is the least trustworthy process on the box — it
+reads untrusted code, web pages, issues and dependency READMEs. One prompt
+injection away from `docker run --privileged -v /:/host` is not a place to be.
+
+This is the smallest thing that turns a *name* into a host-side
+`docker compose up -d`: a directory of scripts you wrote, and a dispatcher that
+will only ever run those. The agent's capability becomes "recreate one of these
+N stacks", which is all a release needs.
+
+It is the deploy half of the
+[CodeContainer](https://github.com/ShadyHippo/CodeContainer) agent sandbox, and
+works with anything else that can reach a Docker network.
 
 ## How it works
 
@@ -142,7 +152,9 @@ small, and do not publish the port.
 | `LOG_TAIL` | `8000` | characters of output returned to the caller |
 | `PROJECTS_DIR` | `/mnt/user/appdata/docker_projects` | stacks, mounted at the same path (compose) |
 
-## Reaching it from another container
+## Using it from a sandboxed agent
+
+Put any container that needs to trigger releases on the same network:
 
 ```yaml
 services:
@@ -156,7 +168,20 @@ networks:
     external: true
 ```
 
-No ports are published, so it is only reachable from containers on that network.
+Then, from inside it:
+
+```bash
+curl -s http://docker-deploy:9000/scripts
+curl -s -XPOST http://docker-deploy:9000/run/easyedit
+```
+
+No ports are published, so it is reachable only from containers on that network
+— not from the LAN, the tailnet or the internet. The agent needs no socket, no
+host shell, and no credentials for the registry; the deploy scripts hold those.
+
+This is how [CodeContainer](https://github.com/ShadyHippo/CodeContainer) releases
+its own stacks, including itself (`POST /run/codecontainer` recreates the agent's
+container, so it ends the session that asked for it).
 
 ## Private registries
 

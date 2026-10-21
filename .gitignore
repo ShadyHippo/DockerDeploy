@@ -1,6 +1,3 @@
 __pycache__/
 *.pyc
-# runtime state, never committed
-docker/
 .env
-ghcr.token

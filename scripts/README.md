@@ -53,11 +53,12 @@ the host's own `/root`) are not there.
 set -euo pipefail
 
 PROJECT=/mnt/user/appdata/docker_projects/Example
-export DOCKER_CONFIG=/root/.docker
+export DOCKER_CONFIG=/tmp/docker
+mkdir -p "$DOCKER_CONFIG"
 
 # private images only
-if [ -s /root/.docker/ghcr.token ]; then
-  tr -d '\n' < /root/.docker/ghcr.token \
+if [ -s /secrets/gh_pat_token ]; then
+  tr -d '\n' < /secrets/gh_pat_token \
     | docker login ghcr.io -u <user> --password-stdin >/dev/null
 fi
 

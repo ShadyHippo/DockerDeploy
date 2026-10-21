@@ -58,6 +58,8 @@ services:
     environment:
       SCRIPT_DIR: /scripts
       RUN_TIMEOUT: "1800"
+      # same value as the mount above, so scripts can report where they look
+      PROJECTS_DIR: ${PROJECTS_DIR:-/mnt/user/appdata/docker_projects}
 
 networks:
   deploy-net:

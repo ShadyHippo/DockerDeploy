@@ -3,6 +3,8 @@
 # Call with: curl -XPOST http://docker-deploy:9000/run/ping
 set -uo pipefail
 
+PROJECTS="${PROJECTS_DIR:-/mnt/user/appdata/docker_projects}"
+
 echo "script:     $0"
 echo "user:       $(id -un) (uid=$(id -u))"
 echo "pwd:        $(pwd)"
@@ -11,7 +13,7 @@ echo "docker:     $(docker version --format '{{.Server.Version}}' 2>&1 | head -1
 echo "hostname:   $(hostname)"
 
 echo "mounts:"
-for p in /scripts /mnt/user/appdata/docker-projects /root/.docker; do
+for p in /scripts "$PROJECTS" /root/.docker; do
     if [ ! -e "$p" ]; then
         echo "  $p: MISSING (check the volume in compose.yaml)"
         continue

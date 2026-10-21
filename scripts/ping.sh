@@ -13,7 +13,7 @@ echo "docker:     $(docker version --format '{{.Server.Version}}' 2>&1 | head -1
 echo "hostname:   $(hostname)"
 
 echo "mounts:"
-for p in /scripts "$PROJECTS" /root/.docker; do
+for p in /scripts "$PROJECTS" /secrets /root/.docker; do
     if [ ! -e "$p" ]; then
         echo "  $p: MISSING (check the volume in compose.yaml)"
         continue

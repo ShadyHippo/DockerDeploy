@@ -43,8 +43,8 @@ executes. The server refuses such a file rather than run it.
 
 Only what is mounted into the container exists: `/scripts`, the projects
 directory (by default `/mnt/user/appdata/docker_projects`, at the same path as on
-the host) and `/root/.docker`. Host-only things (`systemctl`, `mdcmd`, `/boot`,
-the host's own `/root`) are not there.
+the host), `/secrets` (the registry token) and `/root/.docker`. Host-only things
+(`systemctl`, `mdcmd`, `/boot`, the host's own `/root`) are not there.
 
 ## Template
 

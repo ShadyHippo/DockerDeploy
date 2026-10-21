@@ -14,8 +14,7 @@ Scripts live on the host, are mounted read-only, and adding one needs no restart
 An agent running in a container needs to say "pull the new image and recreate
 this stack". It should not get the Docker socket to do that. This container is
 the smallest thing that turns a name into a host-side `docker compose up -d`:
-a directory of scripts you wrote, and a 200-line dispatcher that will only ever
-run those.
+a directory of scripts you wrote, and a dispatcher that will only ever run those.
 
 ## How it works
 
@@ -29,17 +28,33 @@ caller ──HTTP──▶ docker-deploy ──execve──▶ /scripts/<name>.s
   never add or edit what is runnable.
 - The directory is listed on every request. New script, next call — no restart.
 
+## Layout
+
+```
+/mnt/user/appdata/docker_projects/DockerDeploy/     this checkout
+  compose.yaml
+  server.py
+  scripts/            the allowlist, mounted read-only
+    ping.sh
+    easyedit.sh       yours
+  docker/             DOCKER_CONFIG + ghcr.token, gitignored
+
+/mnt/user/appdata/docker_projects/                   the stacks
+  EasyEdit-Photos/
+  MusicScan/
+```
+
 ## Quick start
 
 ```bash
-git clone https://github.com/ShadyHippo/DockerDeploy.git
-cd DockerDeploy
+git clone https://github.com/ShadyHippo/DockerDeploy.git \
+  /mnt/user/appdata/docker_projects/DockerDeploy
+cd /mnt/user/appdata/docker_projects/DockerDeploy
 
-mkdir -p /mnt/user/appdata/docker-deploy/{scripts,docker}
-cp scripts/ping.sh /mnt/user/appdata/docker-deploy/scripts/
-chown -R root:root /mnt/user/appdata/docker-deploy/scripts
-chmod 755 /mnt/user/appdata/docker-deploy/scripts /mnt/user/appdata/docker-deploy/scripts/*.sh
-chmod 700 /mnt/user/appdata/docker-deploy/docker
+mkdir -p docker
+chown root:root scripts docker
+chmod 755 scripts docker
+chmod 755 scripts/*.sh
 
 docker compose pull
 docker compose up -d
@@ -51,8 +66,8 @@ Then, from any container on the `deploy-net` network:
 curl -fsS -XPOST http://docker-deploy:9000/run/ping
 ```
 
-`ping.sh` reports the script's uid, cwd, `$#`, the daemon version and the
-scripts it can see, without touching a stack.
+`ping.sh` reports the script's uid, cwd, `$#`, the daemon version and each
+mount's state, without touching a stack.
 
 ## API
 
@@ -72,7 +87,7 @@ the current list. A name already running returns `409`.
 
 ## Adding a script
 
-Write `/mnt/user/appdata/docker-deploy/scripts/<name>.sh`. It must be:
+Write `scripts/<name>.sh` in this checkout. It must be:
 
 - a regular file (no symlinks),
 - owned by `root`,
@@ -82,8 +97,8 @@ Write `/mnt/user/appdata/docker-deploy/scripts/<name>.sh`. It must be:
 and the directory must be root-owned and not group/other writable.
 
 ```bash
-chown root:root /mnt/user/appdata/docker-deploy/scripts/myservice.sh
-chmod 755 /mnt/user/appdata/docker-deploy/scripts/myservice.sh
+chown root:root scripts/myservice.sh
+chmod 755 scripts/myservice.sh
 ```
 
 This matters on Unraid: files under `/mnt/user` default to `nobody:nobody`, so
@@ -119,14 +134,12 @@ small, and do not publish the port.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `SCRIPT_DIR` | `/scripts` | where the allowlist lives, inside the container |
+| `SCRIPT_DIR` | `/scripts` | allowlist path inside the container |
 | `RUN_TIMEOUT` | `1800` | seconds before a script is killed |
 | `LISTEN_HOST` | `0.0.0.0` | bind address |
 | `LISTEN_PORT` | `9000` | port |
 | `LOG_TAIL` | `8000` | characters of output returned to the caller |
-| `SCRIPTS_DIR` | `/mnt/user/appdata/docker-deploy/scripts` | host side of the allowlist (compose) |
-| `PROJECTS_DIR` | `/mnt/user/appdata/docker-projects` | stacks, mounted at the same path (compose) |
-| `DOCKER_CONFIG_DIR` | `/mnt/user/appdata/docker-deploy/docker` | registry credentials (compose) |
+| `PROJECTS_DIR` | `/mnt/user/appdata/docker_projects` | stacks, mounted at the same path (compose) |
 
 ## Reaching it from another container
 
@@ -146,11 +159,18 @@ No ports are published, so it is only reachable from containers on that network.
 
 ## Private registries
 
-The script logs in before pulling, with credentials kept on the array:
+Keep the token in `docker/`, which is already mounted at `/root/.docker`:
+
+```bash
+printf '%s' '<pat>' > docker/ghcr.token
+chmod 600 docker/ghcr.token
+```
+
+and in the script:
 
 ```bash
 export DOCKER_CONFIG=/root/.docker
-tr -d '\n' < /mnt/user/appdata/docker-deploy/ghcr.token \
+tr -d '\n' < /root/.docker/ghcr.token \
   | docker login ghcr.io -u <user> --password-stdin
 ```
 

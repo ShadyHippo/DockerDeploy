@@ -20,10 +20,11 @@ Each script must be:
 
 and the directory itself must be root-owned and not group/other writable.
 
+From the checkout root:
+
 ```bash
-chown -R root:root /mnt/user/appdata/docker-deploy/scripts
-chmod 755 /mnt/user/appdata/docker-deploy/scripts
-chmod 755 /mnt/user/appdata/docker-deploy/scripts/*.sh
+chown root:root scripts scripts/*.sh
+chmod 755 scripts scripts/*.sh
 ```
 
 This matters on Unraid: files under `/mnt/user` are often `nobody:nobody`, so
@@ -40,9 +41,10 @@ executes. The server refuses such a file rather than run it.
 - **stdout and stderr are returned** to the caller (last 8 KB) with the exit
   code. `0` means success.
 
-Only what is mounted into the container exists: `/scripts`,
-`/mnt/user/appdata/docker-projects` and `/root/.docker`. Host-only things
-(`systemctl`, `mdcmd`, `/boot`, the host's `/root`) are not there.
+Only what is mounted into the container exists: `/scripts`, the projects
+directory (by default `/mnt/user/appdata/docker_projects`, at the same path as on
+the host) and `/root/.docker`. Host-only things (`systemctl`, `mdcmd`, `/boot`,
+the host's own `/root`) are not there.
 
 ## Template
 
@@ -50,8 +52,14 @@ Only what is mounted into the container exists: `/scripts`,
 #!/bin/bash
 set -euo pipefail
 
-PROJECT=/mnt/user/appdata/docker-projects/Example
+PROJECT=/mnt/user/appdata/docker_projects/Example
 export DOCKER_CONFIG=/root/.docker
+
+# private images only
+if [ -s /root/.docker/ghcr.token ]; then
+  tr -d '\n' < /root/.docker/ghcr.token \
+    | docker login ghcr.io -u <user> --password-stdin >/dev/null
+fi
 
 cd "$PROJECT"
 mapfile -t images < <(docker compose config --images)

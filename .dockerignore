@@ -1,3 +1,7 @@
 # scripts come from the read-only mount, not the image
 scripts/
+docker/
 README.md
+.env
+ghcr.token
+.git

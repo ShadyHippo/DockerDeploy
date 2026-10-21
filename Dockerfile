@@ -7,10 +7,6 @@ RUN apk add --no-cache python3 bash jq docker-cli-compose
 WORKDIR /app
 COPY server.py /app/server.py
 
-# Mount point for secrets (the container root is read-only at runtime, so the
-# target directory has to exist in the image).
-RUN mkdir -p /secrets
-
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     SCRIPT_DIR=/scripts \

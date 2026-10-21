@@ -11,7 +11,7 @@
 #   /mnt/user/appdata/docker_projects/
 #     DockerDeploy/            this checkout
 #       scripts/               the allowlist (root-owned, 755)
-#     secrets/gh_pat_token     registry token, mounted at /secrets (ro)
+#       docker/                DOCKER_CONFIG + ghcr.token (gitignored)
 #     EasyEdit-Photos/         the stacks
 #     ...
 
@@ -51,9 +51,9 @@ services:
       # may `git pull`; tighten to :ro if every stack only pulls.
       - ${PROJECTS_DIR:-/mnt/user/appdata/docker_projects}:${PROJECTS_DIR:-/mnt/user/appdata/docker_projects}:rw
 
-      # Registry token, mounted read-only from wherever you already keep it.
-      # Scripts read /secrets/gh_pat_token; no copy, no env var.
-      - ${SECRETS_DIR:-/mnt/user/appdata/docker_projects/secrets}:/secrets:ro
+      # Registry login state and the token. On the array, not /root: /root is
+      # RAM on Unraid and a login there dies on reboot.
+      - ./docker:/root/.docker
 
     environment:
       SCRIPT_DIR: /scripts

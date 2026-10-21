@@ -37,11 +37,11 @@ caller ──HTTP──▶ docker-deploy ──execve──▶ /scripts/<name>.s
   scripts/            the allowlist, mounted read-only
     ping.sh
     easyedit.sh       yours
+  docker/             DOCKER_CONFIG + ghcr.token, gitignored
 
 /mnt/user/appdata/docker_projects/                   the stacks
   EasyEdit-Photos/
   MusicScan/
-  secrets/gh_pat_token                               mounted at /secrets (ro)
 ```
 
 ## Quick start
@@ -51,8 +51,9 @@ git clone https://github.com/ShadyHippo/DockerDeploy.git \
   /mnt/user/appdata/docker_projects/DockerDeploy
 cd /mnt/user/appdata/docker_projects/DockerDeploy
 
-chown root:root scripts
-chmod 755 scripts
+mkdir -p docker
+chown root:root scripts docker
+chmod 755 scripts docker
 chmod 755 scripts/*.sh
 
 docker compose pull
@@ -158,25 +159,23 @@ No ports are published, so it is only reachable from containers on that network.
 
 ## Private registries
 
-The token is **mounted, not copied**. Point `SECRETS_DIR` at the directory that
-already holds it — the default is `/mnt/user/appdata/docker_projects/secrets`,
-mounted read-only at `/secrets`:
+Keep the token in `docker/`, which is already mounted at `/root/.docker`:
 
 ```bash
-chmod 600 /mnt/user/appdata/docker_projects/secrets/gh_pat_token
+printf '%s' '<pat>' > docker/ghcr.token
+chmod 600 docker/ghcr.token
 ```
 
 and in the script:
 
 ```bash
-export DOCKER_CONFIG=/tmp/docker      # tmpfs: the login is not persisted
-mkdir -p "$DOCKER_CONFIG"
-tr -d '\n' < /secrets/gh_pat_token \
+export DOCKER_CONFIG=/root/.docker
+tr -d '\n' < /root/.docker/ghcr.token \
   | docker login ghcr.io -u <user> --password-stdin
 ```
 
-Keeping `DOCKER_CONFIG` on `/tmp` means `docker login` writes its `config.json`
-to memory, so the token is never copied into a second file on disk.
+`/root` is RAM on Unraid, which is why `DOCKER_CONFIG` points at the mounted
+`docker/` directory instead of the default.
 
 ## Building
 

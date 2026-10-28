@@ -19,7 +19,7 @@ COPY server.py /app/server.py
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     SCRIPT_DIR=/scripts \
-    RUN_TIMEOUT=1800 \
+    RUN_TIMEOUT=3600 \
     GIT_CONFIG_GLOBAL=/tmp/.gitconfig \
     GIT_TERMINAL_PROMPT=0
 

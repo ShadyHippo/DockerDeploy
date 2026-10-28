@@ -207,6 +207,7 @@ def main() -> None:
         print(f"[startup] !! {name}: {reason}", file=sys.stderr, flush=True)
     httpd = ThreadingHTTPServer((LISTEN_HOST, LISTEN_PORT), Handler)
     httpd.daemon_threads = True
+    print(f"[startup] run timeout: {RUN_TIMEOUT}s", flush=True)
     print(f"[startup] listening on {LISTEN_HOST}:{LISTEN_PORT}", flush=True)
     httpd.serve_forever()
 

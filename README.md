@@ -146,7 +146,7 @@ small, and do not publish the port.
 | Variable | Default | Meaning |
 |---|---|---|
 | `SCRIPT_DIR` | `/scripts` | allowlist path inside the container |
-| `RUN_TIMEOUT` | `1800` | seconds before a script is killed |
+| `RUN_TIMEOUT` | `3600` | seconds before a script is killed (build stacks can take 20+ min) |
 | `LISTEN_HOST` | `0.0.0.0` | bind address |
 | `LISTEN_PORT` | `9000` | port |
 | `LOG_TAIL` | `8000` | characters of output returned to the caller |

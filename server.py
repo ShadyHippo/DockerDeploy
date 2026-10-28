@@ -31,7 +31,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 SCRIPT_DIR = os.path.realpath(os.environ.get("SCRIPT_DIR", "/scripts"))
 LISTEN_HOST = os.environ.get("LISTEN_HOST", "0.0.0.0")
 LISTEN_PORT = int(os.environ.get("LISTEN_PORT", "9000"))
-RUN_TIMEOUT = int(os.environ.get("RUN_TIMEOUT", "1800"))
+RUN_TIMEOUT = int(os.environ.get("RUN_TIMEOUT", "3600"))
 LOG_TAIL = int(os.environ.get("LOG_TAIL", "8000"))
 
 # Lowercase, no dots, no slashes, no leading dash. The name can only ever be a

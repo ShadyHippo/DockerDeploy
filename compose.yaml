@@ -61,7 +61,7 @@ services:
 
     environment:
       SCRIPT_DIR: /scripts
-      RUN_TIMEOUT: "1800"
+      RUN_TIMEOUT: "3600"
       # same value as the mount above, so scripts can report where they look
       PROJECTS_DIR: ${PROJECTS_DIR:-/mnt/user/appdata/docker_projects}
 

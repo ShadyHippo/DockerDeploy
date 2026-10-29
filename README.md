@@ -114,8 +114,19 @@ chmod 755 scripts/myservice.sh
 
 This matters on Unraid: files under `/mnt/user` default to `nobody:nobody`, so
 "owner-writable" would mean any SMB user could edit a script root then executes.
-The server refuses such a file rather than run it. `scripts/README.md` has the
-full contract and a template.
+The server refuses such a file rather than run it.
+
+**After any edit or pull**, shfs often leaves the file `775`/`777` and it stops
+being callable. Repair it with:
+
+```bash
+curl -s -XPOST http://docker-deploy:9000/run/fix-scripts
+```
+
+or, on the host, `bash scripts/fix-scripts.sh`. It only chowns to root and
+chmods 755 — it never creates or edits a script.
+
+`scripts/README.md` has the full contract and a template.
 
 ## Security model
 
